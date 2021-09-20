@@ -1,0 +1,41 @@
+<launch>
+
+  <!-- calibration file path -->
+  <arg name="velodyne_calib" default="$(find velodyne_pointcloud)/params/32db.yaml"/>
+  <!-- <arg name="camera_calib" default="$(env HOME)/.autoware/data/calibration/camera_lidar_3d/prius/nic-150407.yml"/> -->
+  <!--  This was part of the detection formerly -->
+  <!-- settings for camera calibration publisher launch file -->
+  <arg name="car_detection" default="true" />
+  <arg name="pedestrian_detection" default="false" />
+  <arg name="is_use_gpu" default="true" />
+  <arg name="is_register_lidar2camera_tf" default="true" />
+  <arg name="is_publish_projection_matrix" default="true" />
+  <arg name="is_publish_camera_info" default="true" />
+  <arg name="camera_calib" default="$(env HOME)/shared_dir/autoware-data/test_my_launch/data/calibration/camera_lidar_3d/prius/camera_lidar_sim_sf.yaml"/>
+
+  <!-- HDL-32e -->
+  <include file="$(find runtime_manager)/launch_files/velodyne_hdl32e.launch">
+    <arg name="calibration" value="$(arg velodyne_calib)"/>
+  </include>
+
+  <!-- Re-publishing /camera/compressed topic to /image_raw as expected by Autoware -->
+  <node name="republish" type="republish" pkg="image_transport" output="screen" args="compressed in:=/camera raw out:=/image_raw"/>
+
+
+  <!-- calibration_publisher -->
+  <include file="$(find runtime_manager)/launch_files/calibration_publisher.launch">
+    <arg name="file" value="$(arg camera_calib)" />
+    <arg name="register_lidar2camera_tf" value="$(arg is_register_lidar2camera_tf)" />
+    <arg name="publish_extrinsic_mat" value="$(arg is_publish_projection_matrix)" />
+    <arg name="publish_camera_info" value="$(arg is_publish_camera_info)" />
+  </include>
+
+
+<!-- FIXME: this is to make a temporary hard-link TF between /gps (GPS coordinates fix) and /base_link (base of the car) if localization is failed (e.g. no lidar data)  -->
+<!-- <node pkg="tf" type="static_transform_publisher" name="gps_to_base_link" args="0 0 0 0 0 0  /gps /base_link 10"/> -->
+
+
+  <!-- <node pkg="tf" type="static_transform_publisher" name="lidar_to_camera" args="0.029 -0.574 -1.820 4.712 0.009 -1.883 /velodyne /camera 10" /> -->
+
+</launch>
+

@@ -1,0 +1,82 @@
+<launch>
+
+  <!-- setting path parameter -->
+  <arg name="use_openmp" value="false" />
+  <arg name="get_height" value="true" />
+
+  <arg name="x" value="1.2" />
+  <arg name="y" value="0.0" />
+  <arg name="z" value="2" />
+  <arg name="yaw" value="0.0" />
+  <arg name="pitch" value="0.0" />
+  <arg name="roll" value="0.0" />
+  <arg name="frame_id" value="/base_link" />
+  <arg name="child_frame_id" value="/velodyne" />
+  <arg name="period_in_ms" value="10" />
+  <arg name="sensor_height" value="2.00" />
+
+  <!-- Setup -->
+  <!-- tf parameters for ndt_matching -->
+  <param name="tf_x" value="$(arg x)" />
+  <param name="tf_y" value="$(arg y)" />
+  <param name="tf_z" value="$(arg z)" />
+  <param name="tf_yaw" value="$(arg yaw)" />
+  <param name="tf_pitch" value="$(arg pitch)" />
+  <param name="tf_roll" value="$(arg roll)" />
+  <param name="localizer" value="velodyne" />
+
+  <!-- vel/pose connect -->
+  <arg name="topic_twist_stamped" default="/estimate_twist" />
+  <arg name="topic_pose_stamped" default="/ndt_pose" />
+
+  <!-- static tf publisher between base_link and velodyne -->
+  <include file="$(find runtime_manager)/launch_files/setup_tf.launch">
+    <arg name="x" value="$(arg x)" />
+    <arg name="y" value="$(arg y)" />
+    <arg name="z" value="$(arg z)" />
+    <arg name="yaw" value="$(arg yaw)" />
+    <arg name="pitch" value="$(arg pitch)" />
+    <arg name="roll" value="$(arg roll)" />
+    <arg name="frame_id" value="$(arg frame_id)" />
+    <arg name="child_frame_id" value="$(arg child_frame_id)" />
+    <arg name="period_in_ms" value="$(arg period_in_ms)" />
+  </include>
+
+  <include file="$(find vehicle_description)/launch/vehicle_model.launch" />
+
+  <!-- points downsampler -->
+  <!-- here is where voxel_grid_filter is launched-->
+  <include file="$(find points_downsampler)/launch/points_downsample.launch" />
+
+  <!-- ray_gray points_preprocessor -->
+  <include file="$(find points_preprocessor)/launch/ray_ground_filter.launch">
+    <arg name="sensor_height" value="$(arg sensor_height)" />
+  </include>
+
+  <!-- nmea2tfpose -->
+  <include file="$(find gnss_localizer)/launch/nmea2tfpose.launch"/>
+  <!-- <include file="$(find gnss_localizer)/launch/nmea2tfpose.launch">
+    <arg name="plane" value="0" />
+  </include> -->
+
+  <!-- Preconfigured initial pose -->
+  <node pkg="rostopic" type="rostopic" name="initialPose"
+        args="pub -l /initialpose geometry_msgs/PoseWithCovarianceStamped
+        '{header:  {seq: 2, stamp: {secs: 1576766523, nsecs: 804232569}, frame_id: 'world'}, 
+        pose: {pose: {position: {x: -2.2846262455, y: 2.39897084236, z: 0.0}, 
+        orientation: {x: 0.0, y: 0.0, z: -0.0236013711342, w: 0.999721448845}}, 
+        covariance: [0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.06853891945200942]}}' "/>
+
+  <!-- ndt_matching -->
+  <include file="$(find lidar_localizer)/launch/ndt_matching.launch">
+	  <arg name="method_type" value="0" /> <!-- PEDRO: changed to use GPU (0 is the default value to use cpu) -->
+    <arg name="get_height" value="$(arg get_height)" />
+  </include>
+
+  <!-- vel_pose_mux -->
+  <include file="$(find autoware_connector)/launch/vel_pose_connect.launch">
+    <arg name="topic_pose_stamped" value="$(arg topic_pose_stamped)" />
+    <arg name="topic_twist_stamped" value="$(arg topic_twist_stamped)" />
+  </include>
+
+</launch>
